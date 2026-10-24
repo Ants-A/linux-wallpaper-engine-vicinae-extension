@@ -1,0 +1,24 @@
+{
+  "name": "wallpaper-engine",
+  "title": "Wallpaper Engine",
+  "description": "Pick a Wallpaper Engine wallpaper from a grid",
+  "icon": "extension_icon.png",
+  "author": "ant",
+  "license": "MIT",
+  "version": "1.0.0",
+  "commands": [
+    {
+      "name": "pick",
+      "title": "Pick Wallpaper",
+      "description": "Choose a Wallpaper Engine wallpaper",
+      "mode": "view"
+    }
+  ],
+  "dependencies": { "@vicinae/api": "^0.8.2" },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "typescript": "^5.5.0"
+  },
+  "scripts": { "dev": "vici develop", "build": "vici build" }
+}
