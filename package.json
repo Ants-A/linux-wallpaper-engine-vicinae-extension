@@ -12,6 +12,12 @@
       "title": "Pick Wallpaper",
       "description": "Choose a Wallpaper Engine wallpaper",
       "mode": "view"
+    },
+    {
+      "name": "search",
+      "title": "Search Wallpapers",
+      "description": "Search and download wallpapers from Steam Workshop",
+      "mode": "view"
     }
   ],
   "dependencies": { "@vicinae/api": "^0.8.2" },

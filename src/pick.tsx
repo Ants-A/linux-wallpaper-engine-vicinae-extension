@@ -44,7 +44,7 @@ export default function Command() {
   const items = useMemo(loadWallpapers, []);
 
   return (
-    <Grid columns={4} aspectRatio="16/9" fit={Grid.Fit.Fill} searchBarPlaceholder="Search wallpapers...">
+    <Grid columns={4} aspectRatio="16/9" fit={"fill" as Grid.Props["fit"]} searchBarPlaceholder="Search wallpapers...">
       {items.map((w) => (
         <Grid.Item
           key={w.id}
