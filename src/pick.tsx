@@ -1,4 +1,4 @@
-import { Grid, ActionPanel, Action, showToast, Toast, closeMainWindow } from "@vicinae/api";
+import { Grid, ActionPanel, Action, showToast, Toast, closeMainWindow, environment } from "@vicinae/api";
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -6,7 +6,7 @@ import { spawn } from "child_process";
 import { useMemo } from "react";
 
 const WORKSHOP = "/mnt/slow-storage/SteamLibrary/steamapps/workshop/content/431960";
-const SCRIPT = join(homedir(), ".local/bin/wpengine-pick.sh");
+const SCRIPT = join(environment.assetsPath, "wpengine-pick.sh");
 
 type Wallpaper = { id: string; dir: string; title: string; preview: string };
 
