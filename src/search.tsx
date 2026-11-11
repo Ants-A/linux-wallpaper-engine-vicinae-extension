@@ -1,6 +1,6 @@
 import { Action, ActionPanel, Grid, Toast, closeMainWindow, environment, showToast } from "@vicinae/api";
 import { execFileSync, spawn } from "child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { useEffect, useState } from "react";
@@ -11,9 +11,19 @@ const STEAM_LIBRARY = "/mnt/slow-storage/SteamLibrary";
 const WORKSHOP = join(STEAM_LIBRARY, "steamapps/workshop/content", APP_ID);
 const STEAMCMD_HOME = join(homedir(), ".steam/steamcmd");
 const APPLY_SCRIPT = join(environment.assetsPath, "wpengine-pick.sh");
+const PERFORMANCE_STATE = join(homedir(), ".cache", "wpengine-performance");
 
 type Item = { id: string; title: string; preview: string };
 type WorkshopPage = { items: Item[]; page: number; totalPages: number };
+type PerformanceMode = "low" | "medium" | "high";
+
+function loadPerformance(): PerformanceMode {
+  try {
+    const saved = readFileSync(PERFORMANCE_STATE, "utf8").trim();
+    if (saved === "low" || saved === "high") return saved;
+  } catch {}
+  return "medium";
+}
 
 function decode(value: string) {
   return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -263,7 +273,7 @@ export default function Command() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [hideAnime, setHideAnime] = useState(false);
-  const [allowMature, setAllowMature] = useState(false);
+  const [performance, setPerformance] = useState<PerformanceMode>(loadPerformance);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -275,7 +285,7 @@ export default function Command() {
       setLoading(true);
       setError("");
       try {
-        const result = await searchWorkshop(term, hideAnime, allowMature, page);
+        const result = await searchWorkshop(term, hideAnime, false, page);
         if (active) {
           setItems((current) => page === 1 ? result.items : [...current, ...result.items.filter((item) => !current.some((existing) => existing.id === item.id))]);
           setTotalPages(result.totalPages);
@@ -285,11 +295,16 @@ export default function Command() {
       } finally { if (active) setLoading(false); }
     }, 350);
     return () => { active = false; clearTimeout(timer); };
-  }, [query, hideAnime, allowMature, page]);
+  }, [query, hideAnime, page]);
 
   const updateQuery = (value: string) => { setQuery(value); setPage(1); setItems([]); setTotalPages(0); };
   const updateAnime = (value: string) => { setHideAnime(value === "hide"); setPage(1); setItems([]); setTotalPages(0); };
-  const updateMature = (value: string) => { setAllowMature(value === "on"); setPage(1); setItems([]); setTotalPages(0); };
+  const updatePerformance = (value: string) => {
+    const mode: PerformanceMode = value === "low" || value === "high" ? value : "medium";
+    mkdirSync(join(homedir(), ".cache"), { recursive: true });
+    writeFileSync(PERFORMANCE_STATE, `${mode}\n`);
+    setPerformance(mode);
+  };
   const loadMore = () => { if (!loading && page < totalPages) setPage((current) => current + 1); };
   const handleSelectionChange = (id: string) => {
     const selectedIndex = items.findIndex((item) => item.id === id);
@@ -303,9 +318,10 @@ export default function Command() {
           <Grid.Dropdown.Item title="Show anime" value="show" />
           <Grid.Dropdown.Item title="Hide anime" value="hide" />
         </Grid.Dropdown>
-        <Grid.Dropdown tooltip="Mature content" value={allowMature ? "on" : "off"} onChange={updateMature}>
-          <Grid.Dropdown.Item title="G · All ages" value="off" />
-          <Grid.Dropdown.Item title="Allow R rated" value="on" />
+        <Grid.Dropdown tooltip="Wallpaper performance" value={performance} onChange={updatePerformance}>
+          <Grid.Dropdown.Item title="Low · 15 FPS" value="low" />
+          <Grid.Dropdown.Item title="Medium · 30 FPS" value="medium" />
+          <Grid.Dropdown.Item title="High · 60 FPS" value="high" />
         </Grid.Dropdown>
       </>}>
       {error ? <Grid.EmptyView title="Steam Workshop search failed" description={error} /> : !query.trim() ? <Grid.EmptyView title="Search Steam Workshop" description="Type a wallpaper name or tag to browse community wallpapers." /> : items.length === 0 && !loading ? <Grid.EmptyView title="No wallpapers found" /> : null}

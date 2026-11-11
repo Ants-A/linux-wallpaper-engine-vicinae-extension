@@ -1,12 +1,13 @@
 import { Grid, ActionPanel, Action, showToast, Toast, closeMainWindow, environment } from "@vicinae/api";
-import { readdirSync, readFileSync, existsSync } from "fs";
+import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { spawn } from "child_process";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 const WORKSHOP = "/mnt/slow-storage/SteamLibrary/steamapps/workshop/content/431960";
 const SCRIPT = join(environment.assetsPath, "wpengine-pick.sh");
+const PERFORMANCE_STATE = join(homedir(), ".cache", "wpengine-performance");
 
 type Wallpaper = { id: string; dir: string; title: string; preview: string };
 
@@ -34,17 +35,47 @@ function loadWallpapers(): Wallpaper[] {
   return out.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-async function apply(w: Wallpaper, mode: "duplicate" | "extend") {
-  spawn(SCRIPT, ["--apply", w.dir, mode], { detached: true, stdio: "ignore" }).unref();
-  await showToast({ style: Toast.Style.Success, title: `Applying ${w.title}`, message: mode === "extend" ? "Spanning all monitors" : "Duplicating across all monitors" });
+type PerformanceMode = "low" | "medium" | "high";
+
+function loadPerformance(): PerformanceMode {
+  try {
+    const saved = readFileSync(PERFORMANCE_STATE, "utf8").trim();
+    if (saved === "low" || saved === "high") return saved;
+  } catch {}
+  return "medium";
+}
+
+function performanceLabel(mode: PerformanceMode) {
+  return mode === "low" ? "Low · 15 FPS" : mode === "high" ? "High · 60 FPS" : "Medium · 30 FPS";
+}
+
+async function apply(w: Wallpaper, mode: "duplicate" | "extend", performance: PerformanceMode) {
+  spawn(SCRIPT, ["--apply", w.dir, mode, performance], { detached: true, stdio: "ignore" }).unref();
+  await showToast({ style: Toast.Style.Success, title: `Applying ${w.title}`, message: `${mode === "extend" ? "Spanning" : "Duplicating"} monitors · ${performanceLabel(performance)}` });
   await closeMainWindow();
 }
 
 export default function Command() {
   const items = useMemo(loadWallpapers, []);
+  const [performance, setPerformance] = useState<PerformanceMode>(loadPerformance);
+
+  function updatePerformance(value: string) {
+    const mode: PerformanceMode = value === "low" || value === "high" ? value : "medium";
+    mkdirSync(join(homedir(), ".cache"), { recursive: true });
+    writeFileSync(PERFORMANCE_STATE, `${mode}\n`);
+    setPerformance(mode);
+    showToast({ style: Toast.Style.Success, title: `Performance set to ${performanceLabel(mode)}` });
+  }
 
   return (
-    <Grid columns={4} aspectRatio="16/9" fit={"fill" as Grid.Props["fit"]} searchBarPlaceholder="Search wallpapers...">
+    <Grid columns={4} aspectRatio="16/9" fit={"fill" as Grid.Props["fit"]} searchBarPlaceholder="Search wallpapers..."
+      searchBarAccessory={
+        <Grid.Dropdown tooltip="Wallpaper performance" value={performance} onChange={updatePerformance}>
+          <Grid.Dropdown.Item title="Low · 15 FPS" value="low" />
+          <Grid.Dropdown.Item title="Medium · 30 FPS" value="medium" />
+          <Grid.Dropdown.Item title="High · 60 FPS" value="high" />
+        </Grid.Dropdown>
+      }>
       {items.map((w) => (
         <Grid.Item
           key={w.id}
@@ -53,8 +84,8 @@ export default function Command() {
           content={{ source: w.preview }}
           actions={
             <ActionPanel>
-              <Action title="Set Wallpaper on All Monitors" onAction={() => apply(w, "duplicate")} />
-              <Action title="Extend Across All Monitors" onAction={() => apply(w, "extend")} />
+              <Action title="Set Wallpaper on All Monitors" onAction={() => apply(w, "duplicate", performance)} />
+              <Action title="Extend Across All Monitors" onAction={() => apply(w, "extend", performance)} />
             </ActionPanel>
           }
         />

@@ -7,6 +7,7 @@ SCALING="fill"
 LINKS="$HOME/.cache/wpengine-previews"
 STATE="$HOME/.cache/wpengine-last"
 MODE_STATE="$HOME/.cache/wpengine-mode"
+PERF_STATE="$HOME/.cache/wpengine-performance"
 FRAME="$HOME/.cache/wpengine-frame.png"
 
 WORKSHOP="/mnt/slow-storage/SteamLibrary/steamapps/workshop/content/431960"
@@ -24,10 +25,16 @@ detect_monitors() {
 
 launch() {   # $1 = wallpaper folder
   local mode="${2:-$(cat "$MODE_STATE" 2>/dev/null)}"
+  local performance="${3:-$(cat "$PERF_STATE" 2>/dev/null)}"
   pkill -x linux-wallpaper 2>/dev/null
   mapfile -t MONITORS < <(detect_monitors)
   [ ${#MONITORS[@]} -eq 0 ] && { echo "No monitors detected" >&2; return 1; }
   args=(--assets-dir "$ASSETS" --silent)
+  case "$performance" in
+    low) args+=(--fps 15) ;;
+    high) args+=(--fps 60) ;;
+    *) args+=(--fps 30) ;;
+  esac
   if [ "$mode" = "extend" ] && [ ${#MONITORS[@]} -gt 1 ]; then
     local joined
     joined=$(IFS=,; echo "${MONITORS[*]}")
@@ -50,10 +57,11 @@ preview_of() {
 }
 
 apply() {   # $1 = wallpaper folder
-  local dir="$1" mode="${2:-duplicate}" real
+  local dir="$1" mode="${2:-duplicate}" performance="${3:-medium}" real
   real=$(preview_of "$dir")
   echo "$dir" > "$STATE"
   printf '%s\n' "$mode" > "$MODE_STATE"
+  printf '%s\n' "$performance" > "$PERF_STATE"
   if [ -n "$real" ]; then
     magick "${real}[0]" "$FRAME" || cp "$real" "$FRAME"
     matugen image "$FRAME" --source-color-index 0
@@ -68,7 +76,7 @@ if [ "$1" = "--restore" ]; then
     sleep 1
   done
   dir=$(cat "$STATE" 2>/dev/null)
-  [ -d "$dir" ] && launch "$dir" "$(cat "$MODE_STATE" 2>/dev/null)"
+  [ -d "$dir" ] && launch "$dir" "$(cat "$MODE_STATE" 2>/dev/null)" "$(cat "$PERF_STATE" 2>/dev/null)"
   exit 0
 fi
 
@@ -77,7 +85,9 @@ if [ "$1" = "--apply" ]; then
   [ -d "$2" ] || exit 1
   mode="${3:-duplicate}"
   [ "$mode" = "extend" ] || mode="duplicate"
-  apply "$2" "$mode"
+  performance="${4:-$(cat "$PERF_STATE" 2>/dev/null)}"
+  case "$performance" in low|high) ;; *) performance="medium" ;; esac
+  apply "$2" "$mode" "$performance"
   exit 0
 fi
 
