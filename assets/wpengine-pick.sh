@@ -6,6 +6,7 @@
 SCALING="fill"
 LINKS="$HOME/.cache/wpengine-previews"
 STATE="$HOME/.cache/wpengine-last"
+MODE_STATE="$HOME/.cache/wpengine-mode"
 FRAME="$HOME/.cache/wpengine-frame.png"
 
 WORKSHOP="/mnt/slow-storage/SteamLibrary/steamapps/workshop/content/431960"
@@ -22,13 +23,20 @@ detect_monitors() {
 }
 
 launch() {   # $1 = wallpaper folder
+  local mode="${2:-$(cat "$MODE_STATE" 2>/dev/null)}"
   pkill -x linux-wallpaper 2>/dev/null
   mapfile -t MONITORS < <(detect_monitors)
   [ ${#MONITORS[@]} -eq 0 ] && { echo "No monitors detected" >&2; return 1; }
   args=(--assets-dir "$ASSETS" --silent)
-  for m in "${MONITORS[@]}"; do
-    args+=(--scaling "$SCALING" --screen-root "$m" --bg "$1")
-  done
+  if [ "$mode" = "extend" ] && [ ${#MONITORS[@]} -gt 1 ]; then
+    local joined
+    joined=$(IFS=,; echo "${MONITORS[*]}")
+    args+=(--scaling "$SCALING" --screen-span "$joined" --bg "$1")
+  else
+    for m in "${MONITORS[@]}"; do
+      args+=(--scaling "$SCALING" --screen-root "$m" --bg "$1")
+    done
+  fi
   setsid linux-wallpaperengine "${args[@]}" >"$HOME/.cache/wpengine.log" 2>&1 &
 }
 
@@ -42,9 +50,10 @@ preview_of() {
 }
 
 apply() {   # $1 = wallpaper folder
-  local dir="$1" real
+  local dir="$1" mode="${2:-duplicate}" real
   real=$(preview_of "$dir")
   echo "$dir" > "$STATE"
+  printf '%s\n' "$mode" > "$MODE_STATE"
   if [ -n "$real" ]; then
     magick "${real}[0]" "$FRAME" || cp "$real" "$FRAME"
     matugen image "$FRAME" --source-color-index 0
@@ -59,14 +68,16 @@ if [ "$1" = "--restore" ]; then
     sleep 1
   done
   dir=$(cat "$STATE" 2>/dev/null)
-  [ -d "$dir" ] && launch "$dir"
+  [ -d "$dir" ] && launch "$dir" "$(cat "$MODE_STATE" 2>/dev/null)"
   exit 0
 fi
 
 # --- Apply mode (used by the vicinae extension) ---
 if [ "$1" = "--apply" ]; then
   [ -d "$2" ] || exit 1
-  apply "$2"
+  mode="${3:-duplicate}"
+  [ "$mode" = "extend" ] || mode="duplicate"
+  apply "$2" "$mode"
   exit 0
 fi
 

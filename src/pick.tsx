@@ -34,9 +34,9 @@ function loadWallpapers(): Wallpaper[] {
   return out.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-async function apply(w: Wallpaper) {
-  spawn(SCRIPT, ["--apply", w.dir], { detached: true, stdio: "ignore" }).unref();
-  await showToast({ style: Toast.Style.Success, title: `Applying ${w.title}` });
+async function apply(w: Wallpaper, mode: "duplicate" | "extend") {
+  spawn(SCRIPT, ["--apply", w.dir, mode], { detached: true, stdio: "ignore" }).unref();
+  await showToast({ style: Toast.Style.Success, title: `Applying ${w.title}`, message: mode === "extend" ? "Spanning all monitors" : "Duplicating across all monitors" });
   await closeMainWindow();
 }
 
@@ -53,7 +53,8 @@ export default function Command() {
           content={{ source: w.preview }}
           actions={
             <ActionPanel>
-              <Action title="Set Wallpaper" onAction={() => apply(w)} />
+              <Action title="Set Wallpaper on All Monitors" onAction={() => apply(w, "duplicate")} />
+              <Action title="Extend Across All Monitors" onAction={() => apply(w, "extend")} />
             </ActionPanel>
           }
         />
