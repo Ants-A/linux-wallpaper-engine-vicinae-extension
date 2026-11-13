@@ -39,10 +39,20 @@ launch() {   # $1 = wallpaper folder
     local joined
     joined=$(IFS=,; echo "${MONITORS[*]}")
     args+=(--scaling "$SCALING" --screen-span "$joined" --bg "$1")
-  else
+  elif [ ${#MONITORS[@]} -gt 1 ] && [ "$(jq -r '.type // empty' "$1/project.json" 2>/dev/null)" = "scene" ]; then
+    # Give each scene its own renderer and graphics state.
+    : > "$HOME/.cache/wpengine.log"
     for m in "${MONITORS[@]}"; do
-      args+=(--scaling "$SCALING" --screen-root "$m" --bg "$1")
+      setsid linux-wallpaperengine "${args[@]}" --scaling "$SCALING" \
+        --screen-root "$m" "$1" >>"$HOME/.cache/wpengine.log" 2>&1 &
     done
+    return
+  else
+    args+=(--scaling "$SCALING")
+    for m in "${MONITORS[@]}"; do
+      args+=(--screen-root "$m")
+    done
+    args+=("$1")
   fi
   setsid linux-wallpaperengine "${args[@]}" >"$HOME/.cache/wpengine.log" 2>&1 &
 }
@@ -64,9 +74,10 @@ render_wallpaper_frame() {   # $1 = wallpaper folder; render natively at output 
   render="$FRAME.render.png"
   rm -f "$render"
   pkill -x linux-wallpaper 2>/dev/null || true
-  linux-wallpaperengine --assets-dir "$ASSETS" --silent --fps 30 \
-    --screenshot "$render" --screenshot-delay 30 \
-    --screen-root "$monitor" --scaling "$SCALING" --bg "$dir" \
+  local -a args=(--assets-dir "$ASSETS" --silent --fps 30)
+  args+=(--screenshot "$render" --screenshot-delay 30 \
+    --screen-root "$monitor" --scaling "$SCALING" --bg "$dir")
+  linux-wallpaperengine "${args[@]}" \
     >"$HOME/.cache/wpengine-render.log" 2>&1 &
   pid=$!
   for _ in $(seq 1 120); do
