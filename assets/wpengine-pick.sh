@@ -56,6 +56,35 @@ preview_of() {
   ls "$dir"/preview.* 2>/dev/null | head -n1
 }
 
+render_wallpaper_frame() {   # $1 = wallpaper folder; render natively at output resolution
+  local dir="$1" monitor render pid
+  mapfile -t MONITORS < <(detect_monitors)
+  [ ${#MONITORS[@]} -gt 0 ] || return 1
+  monitor="${MONITORS[0]}"
+  render="$FRAME.render.png"
+  rm -f "$render"
+  pkill -x linux-wallpaper 2>/dev/null || true
+  linux-wallpaperengine --assets-dir "$ASSETS" --silent --fps 30 \
+    --screenshot "$render" --screenshot-delay 30 \
+    --screen-root "$monitor" --scaling "$SCALING" --bg "$dir" \
+    >"$HOME/.cache/wpengine-render.log" 2>&1 &
+  pid=$!
+  for _ in $(seq 1 120); do
+    if [ -s "$render" ] && identify "$render" >/dev/null 2>&1; then
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      mv "$render" "$FRAME"
+      return 0
+    fi
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.25
+  done
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  rm -f "$render"
+  return 1
+}
+
 apply() {   # $1 = wallpaper folder
   local dir="$1" mode="${2:-duplicate}" performance="${3:-medium}" real
   real=$(preview_of "$dir")
@@ -63,8 +92,12 @@ apply() {   # $1 = wallpaper folder
   printf '%s\n' "$mode" > "$MODE_STATE"
   printf '%s\n' "$performance" > "$PERF_STATE"
   if [ -n "$real" ]; then
-    magick "${real}[0]" "$FRAME" || cp "$real" "$FRAME"
-    matugen image "$FRAME" --source-color-index 0
+    if render_wallpaper_frame "$dir"; then
+      command -v awww >/dev/null && awww img "$FRAME" --transition-type none
+      matugen image "$FRAME" --source-color-index 0
+    else
+      echo "Could not render a native-resolution frame; keeping the current awww image" >&2
+    fi
   fi
   launch "$dir"
 }
