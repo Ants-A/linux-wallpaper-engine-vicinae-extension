@@ -61,6 +61,14 @@ launch() {   # $1 = wallpaper folder
     local joined
     joined=$(IFS=,; echo "${MONITORS[*]}")
     args+=(--scaling "$SCALING" --screen-span "$joined" --bg "$1")
+  elif [ ${#MONITORS[@]} -gt 1 ] && [ "$(jq -r '.type // empty' "$1/project.json" 2>/dev/null)" = "scene" ]; then
+    # Scene effects need separate graphics state for each output.
+    : > "$HOME/.cache/wpengine.log"
+    for m in "${MONITORS[@]}"; do
+      setsid linux-wallpaperengine "${args[@]}" --scaling "$SCALING" \
+        --screen-root "$m" "$1" >>"$HOME/.cache/wpengine.log" 2>&1 &
+    done
+    return
   else
     args+=(--scaling "$SCALING")
     for m in "${MONITORS[@]}"; do
