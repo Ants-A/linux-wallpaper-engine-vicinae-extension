@@ -10,8 +10,30 @@ MODE_STATE="$HOME/.cache/wpengine-mode"
 PERF_STATE="$HOME/.cache/wpengine-performance"
 FRAME="$HOME/.cache/wpengine-frame.png"
 
-WORKSHOP="/mnt/slow-storage/SteamLibrary/steamapps/workshop/content/431960"
-ASSETS="/mnt/slow-storage/SteamLibrary/steamapps/common/wallpaper_engine/assets"
+steam_roots() {
+  printf '%s\n' "$HOME/.steam/steam" "$HOME/.steam/root" "$HOME/.local/share/Steam" \
+    /usr/local/share/steam /usr/share/steam
+}
+
+steam_libraries() {
+  local root vdf
+  while IFS= read -r root; do
+    [ -d "$root/steamapps" ] && printf '%s\n' "$root"
+    vdf="$root/steamapps/libraryfolders.vdf"
+    [ -r "$vdf" ] && sed -nE 's/^[[:space:]]*"path"[[:space:]]*"([^"]+)".*/\1/p' "$vdf"
+  done < <(steam_roots)
+}
+
+find_steam_path() {
+  local suffix="$1" library
+  while IFS= read -r library; do
+    [ -d "$library/$suffix" ] && { printf '%s\n' "$library/$suffix"; return 0; }
+  done < <(steam_libraries)
+  return 1
+}
+
+WORKSHOP="$(find_steam_path steamapps/workshop/content/431960 || true)"
+ASSETS="$(find_steam_path steamapps/common/wallpaper_engine/assets || true)"
 
 detect_monitors() {
   if command -v hyprctl >/dev/null && hyprctl monitors -j >/dev/null 2>&1; then
@@ -115,6 +137,7 @@ apply() {   # $1 = wallpaper folder
 
 # --- Restore mode (autostart) ---
 if [ "$1" = "--restore" ]; then
+  [ -n "$ASSETS" ] && [ -n "$WORKSHOP" ] || exit 0
   for _ in $(seq 60); do
     [ -d "$ASSETS" ] && [ -d "$WORKSHOP" ] && break
     sleep 1
@@ -136,8 +159,8 @@ if [ "$1" = "--apply" ]; then
 fi
 
 # --- Picker mode (dmenu fallback) ---
-[ -d "$WORKSHOP" ] || { echo "Workshop dir not found" >&2; exit 1; }
-[ -d "$ASSETS" ]   || { echo "Assets dir not found" >&2; exit 1; }
+[ -n "$WORKSHOP" ] && [ -d "$WORKSHOP" ] || { echo "Steam Workshop folder for Wallpaper Engine not found" >&2; exit 1; }
+[ -n "$ASSETS" ] && [ -d "$ASSETS" ] || { echo "Wallpaper Engine assets folder not found" >&2; exit 1; }
 mkdir -p "$HOME/.config/quickshell/assets"
 
 list_previews() {

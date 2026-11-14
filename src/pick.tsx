@@ -4,8 +4,8 @@ import { join } from "path";
 import { homedir } from "os";
 import { spawn } from "child_process";
 import { useMemo, useState } from "react";
+import { findWorkshopPath } from "./steam";
 
-const WORKSHOP = "/mnt/slow-storage/SteamLibrary/steamapps/workshop/content/431960";
 const SCRIPT = join(environment.assetsPath, "wpengine-pick.sh");
 const PERFORMANCE_STATE = join(homedir(), ".cache", "wpengine-performance");
 
@@ -13,11 +13,13 @@ type Wallpaper = { id: string; dir: string; title: string; preview: string };
 
 function loadWallpapers(): Wallpaper[] {
   const out: Wallpaper[] = [];
+  const workshop = findWorkshopPath();
+  if (!workshop) return out;
   let ids: string[] = [];
-  try { ids = readdirSync(WORKSHOP); } catch { return out; }
+  try { ids = readdirSync(workshop); } catch { return out; }
 
   for (const id of ids) {
-    const dir = join(WORKSHOP, id);
+    const dir = join(workshop, id);
     try {
       const raw = readFileSync(join(dir, "project.json"), "utf8").replace(/^\uFEFF/, "");
       const pj = JSON.parse(raw);

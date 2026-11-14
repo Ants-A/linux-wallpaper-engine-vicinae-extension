@@ -4,11 +4,9 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { join } from "path";
 import { homedir } from "os";
 import { useEffect, useState } from "react";
+import { APP_ID, findWallpaperEngineLibrary, findWorkshopPath } from "./steam";
 
-const APP_ID = "431960";
 const GRID_COLUMNS = 4;
-const STEAM_LIBRARY = "/mnt/slow-storage/SteamLibrary";
-const WORKSHOP = join(STEAM_LIBRARY, "steamapps/workshop/content", APP_ID);
 const STEAMCMD_HOME = join(homedir(), ".steam/steamcmd");
 const APPLY_SCRIPT = join(environment.assetsPath, "wpengine-pick.sh");
 const PERFORMANCE_STATE = join(homedir(), ".cache", "wpengine-performance");
@@ -109,7 +107,9 @@ async function searchWorkshop(query: string, hideAnime: boolean, allowMature: bo
 }
 
 function folderHasPreview(id: string): boolean {
-  const dir = join(WORKSHOP, id);
+  const workshop = findWorkshopPath();
+  if (!workshop) return false;
+  const dir = join(workshop, id);
   if (!existsSync(dir)) return false;
   try {
     const project = JSON.parse(readFileSync(join(dir, "project.json"), "utf8").replace(/^\uFEFF/, ""));
@@ -119,9 +119,15 @@ function folderHasPreview(id: string): boolean {
 }
 
 async function download(item: Item) {
+  const library = findWallpaperEngineLibrary();
+  if (!library) {
+    await showToast({ style: Toast.Style.Failure, title: "Wallpaper Engine not found", message: "Install it through Steam, then try again." });
+    return;
+  }
+  const workshop = join(library, "steamapps/workshop/content", APP_ID);
   if (folderHasPreview(item.id)) {
     await showToast({ style: Toast.Style.Animated, title: "Applying wallpaper", message: item.title });
-    spawn(APPLY_SCRIPT, ["--apply", join(WORKSHOP, item.id)], { detached: true, stdio: "ignore" }).unref();
+    spawn(APPLY_SCRIPT, ["--apply", join(workshop, item.id)], { detached: true, stdio: "ignore" }).unref();
     await closeMainWindow();
     return;
   }
@@ -139,7 +145,7 @@ async function download(item: Item) {
   mkdirSync(STEAMCMD_HOME, { recursive: true });
 
   const toast = await showToast({ style: Toast.Style.Animated, title: `Downloading ${item.title}`, message: "Starting authenticated Steam Workshop download…" });
-  const proc = spawn(steamcmd, ["+force_install_dir", STEAM_LIBRARY, "+login", username, "+workshop_download_item", APP_ID, item.id, "+quit"], { cwd: STEAMCMD_HOME, stdio: ["ignore", "pipe", "pipe"] });
+  const proc = spawn(steamcmd, ["+force_install_dir", library, "+login", username, "+workshop_download_item", APP_ID, item.id, "+quit"], { cwd: STEAMCMD_HOME, stdio: ["ignore", "pipe", "pipe"] });
   let output = "";
   let loginExpired = false;
   let loginConfirmed = false;
@@ -185,7 +191,7 @@ async function download(item: Item) {
   toast.title = "Download complete";
   toast.message = `Applying ${item.title}`;
   toast.style = Toast.Style.Success;
-  spawn(APPLY_SCRIPT, ["--apply", join(WORKSHOP, item.id)], { detached: true, stdio: "ignore" }).unref();
+  spawn(APPLY_SCRIPT, ["--apply", join(workshop, item.id)], { detached: true, stdio: "ignore" }).unref();
   await closeMainWindow();
 }
 
