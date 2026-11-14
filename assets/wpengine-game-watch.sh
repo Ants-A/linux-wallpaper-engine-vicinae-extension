@@ -10,7 +10,8 @@ while sleep 1; do
   export HYPRLAND_INSTANCE_SIGNATURE="$signature" WAYLAND_DISPLAY="$display"
   clients=$(hyprctl -j clients 2>/dev/null) || continue
   jq -e 'type == "array"' <<<"$clients" >/dev/null 2>&1 || continue
-  if jq -e 'any(.[]; (.fullscreen // 0) > 0)' <<<"$clients" >/dev/null 2>&1; then
+  # Hyprland reports 1 for maximized, 2 for fullscreen, and 3 for both.
+  if jq -e 'any(.[]; .fullscreen == 2 or .fullscreen == 3)' <<<"$clients" >/dev/null 2>&1; then
     pkill -x linux-wallpaper 2>/dev/null || true
     was_fullscreen=1
   elif (( was_fullscreen == 1 )); then
