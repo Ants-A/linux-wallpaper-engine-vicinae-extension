@@ -26,9 +26,11 @@ steam_libraries() {
 
 find_steam_path() {
   local suffix="$1" library
-  while IFS= read -r library; do
+  local -a libraries
+  mapfile -t libraries < <(steam_libraries)
+  for library in "${libraries[@]}"; do
     [ -d "$library/$suffix" ] && { printf '%s\n' "$library/$suffix"; return 0; }
-  done < <(steam_libraries)
+  done
   return 1
 }
 
@@ -137,14 +139,15 @@ apply() {   # $1 = wallpaper folder
 
 # --- Restore mode (autostart) ---
 if [ "$1" = "--restore" ]; then
-  [ -n "$ASSETS" ] && [ -n "$WORKSHOP" ] || exit 0
+  [ -n "$ASSETS" ] && [ -n "$WORKSHOP" ] || { echo "Wallpaper Engine assets or workshop not found" >&2; exit 1; }
   for _ in $(seq 60); do
     [ -d "$ASSETS" ] && [ -d "$WORKSHOP" ] && break
     sleep 1
   done
   dir=$(cat "$STATE" 2>/dev/null)
-  [ -d "$dir" ] && launch "$dir" "$(cat "$MODE_STATE" 2>/dev/null)" "$(cat "$PERF_STATE" 2>/dev/null)"
-  exit 0
+  [ -d "$dir" ] || { echo "Saved wallpaper folder not found: $dir" >&2; exit 1; }
+  launch "$dir" "$(cat "$MODE_STATE" 2>/dev/null)" "$(cat "$PERF_STATE" 2>/dev/null)"
+  exit $?
 fi
 
 # --- Apply mode (used by the vicinae extension) ---
