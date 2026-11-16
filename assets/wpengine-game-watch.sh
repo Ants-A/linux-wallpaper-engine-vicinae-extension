@@ -10,6 +10,7 @@ while sleep 1; do
   display=$(jq -r '.[0].wl_socket // empty' <<<"$instances" 2>/dev/null)
   [[ -n "$signature" && -n "$display" ]] || continue
   export HYPRLAND_INSTANCE_SIGNATURE="$signature" WAYLAND_DISPLAY="$display"
+  export XDG_SESSION_TYPE=wayland
   clients=$(hyprctl -j clients 2>/dev/null) || continue
   jq -e 'type == "array"' <<<"$clients" >/dev/null 2>&1 || continue
   # Hyprland reports 1 for maximized, 2 for fullscreen, and 3 for both.

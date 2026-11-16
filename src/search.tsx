@@ -233,6 +233,19 @@ function openWorkshopPage(id: string) {
   void floatSteamWorkshopWindow();
 }
 
+async function subscribeAndApply(item: Item) {
+  const library = findWallpaperEngineLibrary();
+  if (!library) {
+    await showToast({ style: Toast.Style.Failure, title: "Wallpaper Engine not found" });
+    return;
+  }
+  const watcher = spawn(join(environment.assetsPath, "wpengine-wait-subscription.sh"), [library, item.id, APPLY_SCRIPT], { detached: true, stdio: "ignore" });
+  watcher.on("error", (error) => void showToast({ style: Toast.Style.Failure, title: "Could not watch Steam download", message: error.message }));
+  watcher.unref();
+  openWorkshopPage(item.id);
+  await showToast({ style: Toast.Style.Success, title: "Subscribe in Steam", message: "The wallpaper will be applied when Steam finishes installing it." });
+}
+
 async function floatSteamWorkshopWindow() {
   const hyprctl = findExecutable("hyprctl");
   if (!hyprctl || !/hyprland/i.test(process.env.XDG_CURRENT_DESKTOP ?? "")) return;
@@ -332,8 +345,8 @@ export default function Command() {
       </>}>
       {error ? <Grid.EmptyView title="Steam Workshop search failed" description={error} /> : !query.trim() ? <Grid.EmptyView title="Search Steam Workshop" description="Type a wallpaper name or tag to browse community wallpapers." /> : items.length === 0 && !loading ? <Grid.EmptyView title="No wallpapers found" /> : null}
       {items.map((item) => <Grid.Item key={item.id} id={item.id} title={item.title} subtitle={item.id} content={{ source: item.preview }} actions={<ActionPanel>
-        <Action title="Download and Set Wallpaper" onAction={() => download(item)} />
-        <Action title="Open Workshop in Steam" onAction={() => openWorkshopPage(item.id)} />
+        <Action title="Subscribe and Set Wallpaper" onAction={() => subscribeAndApply(item)} />
+        <Action title="Download and Set Wallpaper (Local Only)" onAction={() => download(item)} />
       </ActionPanel>} />)}
     </Grid>
   );
