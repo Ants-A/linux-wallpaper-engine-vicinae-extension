@@ -134,7 +134,7 @@ apply() {   # $1 = wallpaper folder
       echo "Could not render a native-resolution frame; keeping the current awww image" >&2
     fi
   fi
-  launch "$dir"
+  [ "$performance" = "potato" ] || launch "$dir" "$mode" "$performance"
 }
 
 # --- Restore mode (autostart) ---
@@ -146,7 +146,13 @@ if [ "$1" = "--restore" ]; then
   done
   dir=$(cat "$STATE" 2>/dev/null)
   [ -d "$dir" ] || { echo "Saved wallpaper folder not found: $dir" >&2; exit 1; }
-  launch "$dir" "$(cat "$MODE_STATE" 2>/dev/null)" "$(cat "$PERF_STATE" 2>/dev/null)"
+  performance=$(cat "$PERF_STATE" 2>/dev/null)
+  if [ "$performance" = "potato" ]; then
+    pkill -x linux-wallpaper 2>/dev/null || true
+    [ -s "$FRAME" ] && awww img "$FRAME" --transition-type none
+  else
+    launch "$dir" "$(cat "$MODE_STATE" 2>/dev/null)" "$performance"
+  fi
   exit $?
 fi
 
@@ -156,9 +162,9 @@ if [ "$1" = "--apply" ]; then
   mode="${3:-duplicate}"
   [ "$mode" = "extend" ] || mode="duplicate"
   performance="${4:-$(cat "$PERF_STATE" 2>/dev/null)}"
-  case "$performance" in low|high) ;; *) performance="medium" ;; esac
+  case "$performance" in potato|low|high) ;; *) performance="medium" ;; esac
   apply "$2" "$mode" "$performance"
-  exit 0
+  exit $?
 fi
 
 # --- Picker mode (dmenu fallback) ---

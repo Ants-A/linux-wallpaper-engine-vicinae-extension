@@ -5,6 +5,7 @@ import { homedir } from "os";
 import { spawn } from "child_process";
 import { useMemo, useState } from "react";
 import { findWorkshopPath } from "./steam";
+import { checkDependencies } from "./dependencies";
 
 const SCRIPT = join(environment.assetsPath, "wpengine-pick.sh");
 const PERFORMANCE_STATE = join(homedir(), ".cache", "wpengine-performance");
@@ -37,21 +38,22 @@ function loadWallpapers(): Wallpaper[] {
   return out.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-type PerformanceMode = "low" | "medium" | "high";
+type PerformanceMode = "potato" | "low" | "medium" | "high";
 
 function loadPerformance(): PerformanceMode {
   try {
     const saved = readFileSync(PERFORMANCE_STATE, "utf8").trim();
-    if (saved === "low" || saved === "high") return saved;
+    if (saved === "potato" || saved === "low" || saved === "high") return saved;
   } catch {}
   return "medium";
 }
 
 function performanceLabel(mode: PerformanceMode) {
-  return mode === "low" ? "Low · 15 FPS" : mode === "high" ? "High · 60 FPS" : "Medium · 30 FPS";
+  return mode === "potato" ? "Potato · Still image" : mode === "low" ? "Low · 15 FPS" : mode === "high" ? "High · 60 FPS" : "Medium · 30 FPS";
 }
 
 async function apply(w: Wallpaper, mode: "duplicate" | "extend", performance: PerformanceMode) {
+  if (!(await checkDependencies())) return;
   spawn(SCRIPT, ["--apply", w.dir, mode, performance], { detached: true, stdio: "ignore" }).unref();
   await showToast({ style: Toast.Style.Success, title: `Applying ${w.title}`, message: `${mode === "extend" ? "Spanning" : "Duplicating"} monitors · ${performanceLabel(performance)}` });
   await closeMainWindow();
@@ -62,7 +64,7 @@ export default function Command() {
   const [performance, setPerformance] = useState<PerformanceMode>(loadPerformance);
 
   function updatePerformance(value: string) {
-    const mode: PerformanceMode = value === "low" || value === "high" ? value : "medium";
+    const mode: PerformanceMode = value === "potato" || value === "low" || value === "high" ? value : "medium";
     mkdirSync(join(homedir(), ".cache"), { recursive: true });
     writeFileSync(PERFORMANCE_STATE, `${mode}\n`);
     setPerformance(mode);
@@ -73,6 +75,7 @@ export default function Command() {
     <Grid columns={4} aspectRatio="16/9" fit={"fill" as Grid.Props["fit"]} searchBarPlaceholder="Search wallpapers..."
       searchBarAccessory={
         <Grid.Dropdown tooltip="Wallpaper performance" value={performance} onChange={updatePerformance}>
+          <Grid.Dropdown.Item title="Potato · Still image" value="potato" />
           <Grid.Dropdown.Item title="Low · 15 FPS" value="low" />
           <Grid.Dropdown.Item title="Medium · 30 FPS" value="medium" />
           <Grid.Dropdown.Item title="High · 60 FPS" value="high" />

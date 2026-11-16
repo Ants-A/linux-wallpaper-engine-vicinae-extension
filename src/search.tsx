@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { join } from "path";
 import { homedir } from "os";
 import { useEffect, useState } from "react";
+import { checkDependencies } from "./dependencies";
 import { APP_ID, findWallpaperEngineLibrary, findWorkshopPath } from "./steam";
 
 const GRID_COLUMNS = 4;
@@ -13,12 +14,12 @@ const PERFORMANCE_STATE = join(homedir(), ".cache", "wpengine-performance");
 
 type Item = { id: string; title: string; preview: string };
 type WorkshopPage = { items: Item[]; page: number; totalPages: number };
-type PerformanceMode = "low" | "medium" | "high";
+type PerformanceMode = "potato" | "low" | "medium" | "high";
 
 function loadPerformance(): PerformanceMode {
   try {
     const saved = readFileSync(PERFORMANCE_STATE, "utf8").trim();
-    if (saved === "low" || saved === "high") return saved;
+    if (saved === "potato" || saved === "low" || saved === "high") return saved;
   } catch {}
   return "medium";
 }
@@ -119,6 +120,7 @@ function folderHasPreview(id: string): boolean {
 }
 
 async function download(item: Item) {
+  if (!(await checkDependencies())) return;
   const library = findWallpaperEngineLibrary();
   if (!library) {
     await showToast({ style: Toast.Style.Failure, title: "Wallpaper Engine not found", message: "Install it through Steam, then try again." });
@@ -319,7 +321,7 @@ export default function Command() {
   const updateQuery = (value: string) => { setQuery(value); setPage(1); setItems([]); setTotalPages(0); };
   const updateAnime = (value: string) => { setHideAnime(value === "hide"); setPage(1); setItems([]); setTotalPages(0); };
   const updatePerformance = (value: string) => {
-    const mode: PerformanceMode = value === "low" || value === "high" ? value : "medium";
+    const mode: PerformanceMode = value === "potato" || value === "low" || value === "high" ? value : "medium";
     mkdirSync(join(homedir(), ".cache"), { recursive: true });
     writeFileSync(PERFORMANCE_STATE, `${mode}\n`);
     setPerformance(mode);
@@ -338,6 +340,7 @@ export default function Command() {
           <Grid.Dropdown.Item title="Hide anime" value="hide" />
         </Grid.Dropdown>
         <Grid.Dropdown tooltip="Wallpaper performance" value={performance} onChange={updatePerformance}>
+          <Grid.Dropdown.Item title="Potato · Still image" value="potato" />
           <Grid.Dropdown.Item title="Low · 15 FPS" value="low" />
           <Grid.Dropdown.Item title="Medium · 30 FPS" value="medium" />
           <Grid.Dropdown.Item title="High · 60 FPS" value="high" />
